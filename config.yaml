@@ -1,0 +1,11 @@
+# input file
+file: './chrome/118.0.5993.71/chrome.dll'
+# Apply following patches to input file
+patch:
+  - name: 'blink::Navigator::webdriver' # optional, exists for "docs"/debugging purposes (when signature is not found)
+    # IDA style signature to be replaced with bytes from field 'with'
+    sig: '53 48 83 EC ? 48 8B ? ? ? ? ? 48 ? ? 48 ? ? ? 28 B3 01 80 3D ? ? ? ? 00 74 ? 48 8b ? ? ?'
+    # New byte list that will replace the bytes in the signature
+    with:
+      - '48 c7 c0 00 00 00 00' # mov rax, 0x00
+      - 'c3'                   # ret

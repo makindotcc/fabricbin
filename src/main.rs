@@ -1,63 +1,85 @@
 use crate::sigscan::find_pattern;
 use anyhow::Context;
+use serde::{Deserialize, Deserializer, Serialize};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 fn main() -> anyhow::Result<()> {
-    let chrome_libs = find_chrome_dlls().context("Could not find chrome lib files")?;
-    println!(
-        "Patching chrome.dll from following path(s):\n{}",
-        chrome_libs
-            .iter()
-            .map(|path| path.to_string_lossy())
-            .collect::<Vec<_>>()
-            .join("\n")
-    );
-
-    for chrome_lib in chrome_libs {
-        patch_chrome_lib(&chrome_lib).expect("essa");
-    }
-
+    let config: Config = {
+        let config_bytes = fs::read("config.yaml").context("Could not read config file")?;
+        serde_yaml::from_slice(&config_bytes).context("Could not parse config file")?
+    };
+    println!("Config: {config:?}");
+    apply_patches(&Path::new(&config.file), config.patches)
+        .context("Could not apply patch to file")?;
+    println!("Patched file successfully.");
     Ok(())
 }
 
-fn find_chrome_dlls() -> anyhow::Result<Vec<PathBuf>> {
-    const CHROME_PATH: &str = r#"./chrome"#;
-
-    let paths = fs::read_dir(CHROME_PATH)
-        .with_context(|| format!("Could not read chrome directory: {CHROME_PATH}"))?
-        .filter_map(Result::ok)
-        .filter(|file| file.file_type().is_ok_and(|file_type| file_type.is_dir()))
-        .map(|dir| dir.path().join("chrome.dll"))
-        .filter(|chrome_dll| chrome_dll.exists())
-        .collect();
-    Ok(paths)
+#[derive(Debug, Serialize, Deserialize)]
+struct Config {
+    file: String,
+    #[serde(rename = "patch")]
+    patches: Vec<PatchConfig>,
 }
 
-fn patch_chrome_lib(path: &Path) -> anyhow::Result<()> {
+#[derive(Debug, Serialize, Deserialize)]
+struct PatchConfig {
+    name: Option<String>,
+    sig: String,
+    #[serde(deserialize_with = "deserialize_bytes")]
+    with: Vec<u8>,
+    with_offset: Option<isize>,
+}
+
+fn deserialize_bytes<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+    where
+        D: Deserializer<'de>,
+{
+    let lines: Vec<String> = Deserialize::deserialize(deserializer)?;
+    lines
+        .join(" ")
+        .split(" ")
+        .map(|byte| u8::from_str_radix(byte, 16))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(serde::de::Error::custom)
+}
+
+fn apply_patches(path: &Path, patches: Vec<PatchConfig>) -> anyhow::Result<()> {
     let backup_path = {
         let mut buf = path.to_path_buf();
         buf.pop();
         buf.join("chrome.dll.bak")
     };
     let mut chrome_bin = fs::read(path).context("Could not read chrome lib")?;
-
-    let pattern_found = find_pattern(
-        &chrome_bin,
-        "53 48 83 EC ? 48 8B ? ? ? ? ? 48 ? ? 48 ? ? ? 28 B3 01 80 3D ? ? ? ? 00 74 ? 48 8b ? ? ?",
-    )
-    .context("Could not find Navigator@webdriver function pattern")?;
-    println!("pattern found: {pattern_found}");
-    let patch_data = [
-        0x48, 0xc7, 0xc0, 0x00, 0x00, 0x00, 0x00, // mov rax, 0x00
-        0xc3, // ret
-    ];
-    chrome_bin.splice(
-        pattern_found..(pattern_found + patch_data.len()),
-        patch_data,
-    );
+    for patch in patches {
+        let patch_name = patch.name.as_deref().unwrap_or_else(|| &patch.sig);
+        println!("Patching signature: {}", patch_name);
+        apply_patch(
+            &mut chrome_bin,
+            &patch.sig,
+            patch.with,
+            patch.with_offset.unwrap_or(0),
+        )
+        .with_context(|| format!("Could not apply patch {}", patch_name))?;
+    }
     fs::rename(path, &backup_path).context("Could not create backup file!")?;
     fs::write(path, chrome_bin).context("Could not write patched chrome")?;
+    Ok(())
+}
+
+fn apply_patch(
+    target: &mut Vec<u8>,
+    sig: &str,
+    with: Vec<u8>,
+    with_offset: isize,
+) -> anyhow::Result<()> {
+    let pattern_offset = find_pattern(&target, &sig).context("Could not find pattern")?;
+    println!("  Pattern found at {pattern_offset:x}");
+    let patch_offset = pattern_offset
+        .checked_add_signed(with_offset)
+        .context("Patch offset overflowed")?;
+    target.splice(patch_offset..(patch_offset + with.len()), with);
     Ok(())
 }
 
