@@ -33,8 +33,8 @@ struct PatchConfig {
 }
 
 fn deserialize_bytes<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
-    where
-        D: Deserializer<'de>,
+where
+    D: Deserializer<'de>,
 {
     let lines: Vec<String> = Deserialize::deserialize(deserializer)?;
     lines
@@ -48,8 +48,13 @@ fn deserialize_bytes<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
 fn apply_patches(path: &Path, patches: Vec<PatchConfig>) -> anyhow::Result<()> {
     let backup_path = {
         let mut buf = path.to_path_buf();
+        let file_name = path
+            .file_name()
+            .context("Could not get file name from input file")?
+            .to_str()
+            .context("Could not parse input file name")?;
         buf.pop();
-        buf.join("chrome.dll.bak")
+        buf.join(format!("{file_name}.bak"))
     };
     let mut chrome_bin = fs::read(path).context("Could not read chrome lib")?;
     for patch in patches {
