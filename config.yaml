@@ -1,5 +1,8 @@
 # input file
-file: './chrome/118.0.5993.71/chrome.dll'
+input_file: './chrome/118.0.5993.71/chrome.dll'
+# Optional output file path. If not defined then input file is used and
+# backup file (of input file) with suffix ".bak" is created.
+output_file: './chrome/118.0.5993.71/chrome.dll'
 # Apply following patches to input file
 patch:
   # Following patch will replace FIRST occurrence of "sig".
