@@ -1,12 +1,17 @@
 use crate::sigscan::find_pattern;
 use anyhow::Context;
 use serde::{Deserialize, Deserializer, Serialize};
-use std::fs;
 use std::path::Path;
+use std::{env, fs};
 
 fn main() -> anyhow::Result<()> {
     let config: Config = {
-        let config_bytes = fs::read("config.yaml").context("Could not read config file")?;
+        let provided_config_name = env::args().skip(1).next();
+        let config_path = provided_config_name
+            .as_deref()
+            .unwrap_or_else(|| "config.yaml");
+        println!("Using config: {}", config_path);
+        let config_bytes = fs::read(config_path).context("Could not read config file")?;
         serde_yaml::from_slice(&config_bytes).context("Could not parse config file")?
     };
     println!("Config: {config:?}");
