@@ -2,10 +2,15 @@
 
 Patch binary file using IDA signatures and defined replacement bytes in YAML.
 
+Install:
+```bash
+cargo install --git https://github.com/makindotcc/fabricbin
+```
+
 Usage:
 
 1. Modify config.yaml (any filename)
-2. ``./fabricbin config.yaml`` (any filename, by default "config.yaml" is used)
+2. ``fabricbin config.yaml`` (any filename, by default "config.yaml" is used)
 3. Input file will be replaced with 
 
 Example configuration:
