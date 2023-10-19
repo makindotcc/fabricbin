@@ -72,12 +72,12 @@ fn apply_patches(
     output_path: &Path,
     patches: Vec<PatchConfig>,
 ) -> anyhow::Result<()> {
-    let mut chrome_bin = fs::read(input_path).context("Could not read chrome lib")?;
+    let mut bin = fs::read(input_path).context("Could not read input file")?;
     for patch in patches {
         let patch_name = patch.name.as_deref().unwrap_or_else(|| &patch.sig);
         println!("Patching signature: {}", patch_name);
         apply_patch(
-            &mut chrome_bin,
+            &mut bin,
             &patch.sig,
             patch.with,
             patch.with_offset.unwrap_or(0),
@@ -87,7 +87,7 @@ fn apply_patches(
     if input_path == output_path {
         create_backup_file(input_path).context("Could not create backup file!")?;
     }
-    fs::write(output_path, chrome_bin).context("Could not write patched chrome")?;
+    fs::write(output_path, bin).context("Could not write output file")?;
     Ok(())
 }
 
