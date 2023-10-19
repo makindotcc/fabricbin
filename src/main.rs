@@ -132,7 +132,7 @@ mod sigscan {
             .split_whitespace()
             .map(|x| match &x {
                 &"?" => ".".to_string(),
-                x => format!("\\x{}", x),
+                x => format!("\\x{:0>2}", x),
             })
             .collect::<Vec<_>>()
             .join("");
