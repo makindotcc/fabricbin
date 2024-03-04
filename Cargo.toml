@@ -2,6 +2,10 @@
 name = "fabricbin"
 version = "0.1.0"
 edition = "2021"
+repository = "https://github.com/makindotcc/fabricbin"
+description = "Patch binary file using IDA signatures and defined replacement bytes in YAML."
+license = "MIT"
+categories = ["development-tools", "parsing"]
 
 [dependencies]
 anyhow = "1.0.75"
